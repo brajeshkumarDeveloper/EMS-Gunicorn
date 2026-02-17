@@ -60,6 +60,10 @@ jobs:
             cd ~
             if [ ! -d "EMS-Gunicorn" ]; then
               git clone https://github.com/brajeshkumarDeveloper/EMS-Gunicorn.git
+            else
+              cd EMS-Gunicorn
+              git reset --hard
+              git pull origin main
             fi
             cd EMS-Gunicorn
             bash deploy.sh
