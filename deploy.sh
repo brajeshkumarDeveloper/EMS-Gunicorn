@@ -5,6 +5,7 @@ if [ -d "venv" ]; then
   echo "Virtual environment exists. Pulling latest changes..."
   git pull origin main
   source venv/bin/activate
+  pip install --upgrade pip setuptools wheel
   pip install -r requirements.txt
 else
   echo "First time setup..."
@@ -14,6 +15,7 @@ else
 
   python3 -m venv venv
   source venv/bin/activate
+  pip install --upgrade pip setuptools wheel
   pip install -r requirements.txt
 
   sudo tee /etc/systemd/system/fastapi.service > /dev/null << 'SERVICEEOF'
@@ -23,11 +25,10 @@ After=network.target
 
 [Service]
 User=ubuntu
+Group=ubuntu
 WorkingDirectory=/home/ubuntu/EMS-Gunicorn
-ExecStart=/home/ubuntu/EMS-Gunicorn/venv/bin/gunicorn main:app \
-          -k uvicorn.workers.UvicornWorker \
-          -w 4 \
-          -b 127.0.0.1:8000
+Environment="PATH=/home/ubuntu/EMS-Gunicorn/venv/bin"
+ExecStart=/home/ubuntu/EMS-Gunicorn/venv/bin/gunicorn main:app --workers 3 --bind 0.0.0.0:8000
 Restart=always
 
 [Install]
