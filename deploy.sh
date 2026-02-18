@@ -1,35 +1,55 @@
 #!/bin/bash
 set -e
 
+# Non-interactive mode for CI/CD
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
 APP_DIR="/home/ubuntu/EMS-Gunicorn"
 VENV_DIR="$APP_DIR/venv"
 LOG_DIR="$APP_DIR/logs"
+SERVICE_FILE="/etc/systemd/system/fastapi.service"
+NGINX_FILE="/etc/nginx/sites-available/fastapi"
 
-# 1️⃣ Create logs directory
-mkdir -p "$LOG_DIR"
+echo "🚀 Starting FastAPI Deployment..."
 
-# 2️⃣ Activate or create virtual environment
-if [ -d "$VENV_DIR" ]; then
-    echo "Virtual environment exists. Pulling latest changes..."
-    cd "$APP_DIR"
+# Ensure app directory exists
+sudo mkdir -p "$APP_DIR"
+sudo chown -R ubuntu:ubuntu "$APP_DIR"
+
+cd "$APP_DIR"
+
+# Always pull latest code if git repo exists
+if [ -d ".git" ]; then
+    echo "📥 Pulling latest code..."
+    git reset --hard
     git pull origin main
-    source "$VENV_DIR/bin/activate"
-    pip install --upgrade pip setuptools wheel
-    pip install -r requirements.txt
-else
-    echo "First time setup..."
-    sudo apt update
-    sudo apt install -y python3-pip python3-venv nginx git
-
-    cd "$APP_DIR"
-    python3 -m venv "$VENV_DIR"
-    source "$VENV_DIR/bin/activate"
-    pip install --upgrade pip setuptools wheel
-    pip install -r requirements.txt
 fi
 
-# 3️⃣ Create systemd service for FastAPI (Gunicorn)
-sudo tee /etc/systemd/system/fastapi.service > /dev/null <<EOF
+# Install required system packages
+echo "📦 Installing system dependencies..."
+sudo apt update -y
+sudo apt install -y python3-pip python3-venv nginx git
+
+# Create logs directory
+mkdir -p "$LOG_DIR"
+
+# Setup virtual environment
+if [ -d "$VENV_DIR" ]; then
+    echo "🔁 Using existing virtual environment..."
+else
+    echo "🆕 Creating virtual environment..."
+    python3 -m venv "$VENV_DIR"
+fi
+
+source "$VENV_DIR/bin/activate"
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+
+# Create systemd service
+echo "⚙️ Configuring systemd service..."
+
+sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=FastAPI App (Gunicorn)
 After=network.target
@@ -42,22 +62,29 @@ Environment="PATH=$VENV_DIR/bin"
 ExecStart=$VENV_DIR/bin/gunicorn main:app \
           --workers 3 \
           --worker-class uvicorn.workers.UvicornWorker \
-          --bind 0.0.0.0:8000 \
+          --bind 127.0.0.1:8000 \
+          --timeout 60 \
+          --graceful-timeout 30 \
+          --keep-alive 5 \
           --access-logfile $LOG_DIR/access.log \
           --error-logfile $LOG_DIR/error.log
 Restart=always
+RestartSec=5
+KillSignal=SIGQUIT
+TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Reload systemd, enable and start service
 sudo systemctl daemon-reload
 sudo systemctl enable fastapi
 sudo systemctl restart fastapi
 
-# 4️⃣ Configure Nginx as reverse proxy
-sudo tee /etc/nginx/sites-available/fastapi > /dev/null <<EOF
+# Configure Nginx
+echo "🌐 Configuring Nginx..."
+
+sudo tee "$NGINX_FILE" > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
@@ -72,11 +99,12 @@ server {
 }
 EOF
 
-sudo ln -sf /etc/nginx/sites-available/fastapi /etc/nginx/sites-enabled/fastapi
+sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/fastapi
 sudo rm -f /etc/nginx/sites-enabled/default
+
 sudo nginx -t
 sudo systemctl restart nginx
 
-echo "✅ FastAPI deployment completed!"
-echo "You can now access your app at: http://<EC2_PUBLIC_IP>/docs"
-echo "Logs are available at $LOG_DIR/"
+echo "✅ Deployment Successful!"
+echo "🌍 Access your app at: http://<EC2_PUBLIC_IP>/docs"
+echo "📄 Logs available at: $LOG_DIR/"

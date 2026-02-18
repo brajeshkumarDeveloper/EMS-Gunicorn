@@ -6,7 +6,7 @@ resource "aws_security_group" "emp_sg" {
   description = "Allow SSH, HTTP, Employee Management System ports"
 
   # If you have a VPC, attach it:
-  # vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.my_vpc.id
 
   ingress {
     description = "SSH"
@@ -55,6 +55,9 @@ resource "aws_instance" "emp_ec2" {
   vpc_security_group_ids = [
     aws_security_group.emp_sg.id
   ]
+  associate_public_ip_address = true
+  subnet_id = aws_subnet.public_subnet.id
+
 
   tags = {
     Name = "Employee-Management-System-WebServer"
@@ -81,20 +84,72 @@ output "ec2_public_ip" {
 
 # ----------------------------
 # S3 Bucket and DynamoDB Table for Terraform State Locking
-# resource "aws_s3_bucket" "s3_bucket" {
-#   bucket= "employee-tf-s3-bucket"
-# }
+resource "aws_s3_bucket" "s3_bucket" {
+  bucket= "employee-tf-s3-bucket"
+}
 
 # ----------------------------
 # DynamoDB Table for Terraform State Locking
-# resource "aws_dynamodb_table" "terraform-lock-employee-table" {
-#   name           = "terraform-lock-employees-table"
-#   billing_mode     = "PAY_PER_REQUEST"
-#   hash_key       = "LockID"
+resource "aws_dynamodb_table" "terraform-lock-employee-table" {
+  name           = "terraform-lock-employees-table"
+  billing_mode     = "PAY_PER_REQUEST"
+  hash_key       = "LockID"
 
-#   attribute {
-#     name = "LockID"
-#     type = "S"
-#   }
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
 
-# }
+}
+
+# Create a VPC
+resource "aws_vpc" "my_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  tags = {
+    Name = "my_vpc"
+  }
+}
+
+# Private Subnet
+resource "aws_subnet" "private_subnet" {
+  cidr_block = "10.0.1.0/24"
+  vpc_id     = aws_vpc.my_vpc.id
+  tags = {
+    Name = "private_subnet"
+  }
+
+}
+
+# Public Subnet
+resource "aws_subnet" "public_subnet" {
+  cidr_block = "10.0.2.0/24"
+  vpc_id     = aws_vpc.my_vpc.id
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "public_subnet"
+  }
+
+}
+
+# Internet Gateway
+resource "aws_internet_gateway" "my_igw" {
+  vpc_id = aws_vpc.my_vpc.id
+  tags = {
+    Name = "my_igw"
+  }
+}
+
+# Public Route Table
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.my_vpc.id
+  route {
+    cidr_block      = "0.0.0.0/0"
+    gateway_id      = aws_internet_gateway.my_igw.id
+  }
+}
+
+# Associate Public Subnet with Public Route Table
+resource "aws_route_table_association" "public_rt_assoc" {
+  subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.public_rt.id
+}

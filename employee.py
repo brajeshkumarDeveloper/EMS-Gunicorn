@@ -1,7 +1,8 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class Employee(BaseModel):
-    id: int = None
+    id: Optional[int] = None
     name: str
     age: int
     email: str
