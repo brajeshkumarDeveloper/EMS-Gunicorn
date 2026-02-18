@@ -9,7 +9,9 @@ list_of_employees = [Employee(id=1, name="John Doe", age=30, email="john.doe@exa
                      Employee(id=4, name="Alice Brown", age=35, email="alice.brown@example.com"),
                      Employee(id=5, name="Charlie Davis", age=28, email="charlie.davis@example.com"),
                      Employee(id=6, name="Emily Wilson", age=32, email="emily.wilson@example.com"),
-                     Employee(id=7, name="David Lee", age=45, email="david.lee@test.com")]
+                     Employee(id=7, name="David Lee", age=45, email="david.lee@test.com"),
+                        Employee(id=8, name="Sarah Miller", age=29, email="sarah.miller@example.com"),
+                     ]
 
 
 @app.get("/")
