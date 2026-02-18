@@ -22,21 +22,21 @@ jobs:
           terraform_version: 1.6.6
 
       - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
+        working-directory: terraform/app
+        run: terraform init -reconfigure
 
       - name: Terraform Plan
-        working-directory: terraform
+        working-directory: terraform/app
         run: terraform plan -input=false
 
       - name: Terraform Apply
         id: apply
-        working-directory: terraform
+        working-directory: terraform/app
         run: terraform apply -input=false -auto-approve
 
       - name: Terraform Destroy on Failure
         if: failure() && steps.apply.outcome == 'failure'
-        working-directory: terraform
+        working-directory: terraform/app
         run: terraform destroy -auto-approve
 
   deploy:
