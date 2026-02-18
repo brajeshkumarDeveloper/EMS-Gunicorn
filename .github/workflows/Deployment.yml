@@ -57,13 +57,18 @@ jobs:
           timeout: 30s
           command_timeout: 10m
           script: |
+            set -e
+
             cd ~
             if [ ! -d "EMS-Gunicorn" ]; then
-              git clone https://github.com/brajeshkumarDeveloper/EMS-Gunicorn.git
-            else
-              cd EMS-Gunicorn
-              git reset --hard
-              git pull origin main
+              git clone https://github.com/${{ github.repository }}.git
             fi
             cd EMS-Gunicorn
+
+            echo "🔄 Updating code..."
+            git fetch origin
+            git reset --hard origin/main
+
+
+            echo "🚀 Running deployment script..."
             bash deploy.sh
